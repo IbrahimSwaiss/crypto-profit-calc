@@ -11,7 +11,18 @@
       <section class="toolbar" aria-labelledby="page-title">
         <div>
           <p class="eyebrow">Portfolio tracker</p>
-          <h1 id="page-title">Crypto Profit Calculator</h1>
+          <div class="title-row">
+            <h1 id="page-title">Crypto Profit Calculator</h1>
+            <button
+              class="icon-button"
+              id="refreshPricesButton"
+              type="button"
+              aria-label="Refresh prices"
+              title="Refresh prices"
+            >
+              <span aria-hidden="true">↻</span>
+            </button>
+          </div>
         </div>
         <div
           class="price-status"
@@ -101,15 +112,6 @@
             <p class="eyebrow">Add buy trade</p>
             <h2 id="trade-form-title">Trade Entry</h2>
           </div>
-          <button
-            class="icon-button"
-            id="refreshPricesButton"
-            type="button"
-            aria-label="Refresh prices"
-            title="Refresh prices"
-          >
-            <span aria-hidden="true">↻</span>
-          </button>
         </div>
 
         <form id="tradeForm" class="trade-form" novalidate>
