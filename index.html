@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Crypto Profit Calculator</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="toolbar" aria-labelledby="page-title">
+        <div>
+          <p class="eyebrow">Portfolio tracker</p>
+          <h1 id="page-title">Crypto Profit Calculator</h1>
+        </div>
+        <div
+          class="price-status"
+          id="priceStatus"
+          role="status"
+          aria-live="polite"
+        >
+          Prices not loaded
+        </div>
+      </section>
+
+      <section class="metrics" aria-label="Overall portfolio totals">
+        <article>
+          <span>Total invested</span>
+          <strong id="totalInvested">0.00 USDT</strong>
+        </article>
+        <article>
+          <span>Current value</span>
+          <strong id="totalValue">0.00 USDT</strong>
+        </article>
+        <article>
+          <span>Overall profit</span>
+          <strong id="overallProfit">0.00 USDT</strong>
+        </article>
+      </section>
+
+      <section class="panel" aria-labelledby="summary-title">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Grouped by coin</p>
+            <h2 id="summary-title">Profit Summary</h2>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Coin</th>
+                <th>Total USDT Paid</th>
+                <th>Total Coin</th>
+                <th>Current Price</th>
+                <th>Current Value</th>
+                <th>Profit</th>
+              </tr>
+            </thead>
+            <tbody id="summaryRows"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel" aria-labelledby="trades-title">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Saved locally</p>
+            <h2 id="trades-title">Trades</h2>
+          </div>
+          <button
+            class="text-button danger"
+            id="clearTradesButton"
+            type="button"
+          >
+            Clear All
+          </button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Coin</th>
+                <th>USDT Paid</th>
+                <th>Entry Price</th>
+                <th>Coin Received</th>
+                <th>Current Price</th>
+                <th>Current Value</th>
+                <th>Profit</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="tradeRows"></tbody>
+          </table>
+        </div>
+      </section>
+      <section class="panel trade-panel" aria-labelledby="trade-form-title">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Add buy trade</p>
+            <h2 id="trade-form-title">Trade Entry</h2>
+          </div>
+          <button
+            class="icon-button"
+            id="refreshPricesButton"
+            type="button"
+            aria-label="Refresh prices"
+            title="Refresh prices"
+          >
+            <span aria-hidden="true">↻</span>
+          </button>
+        </div>
+
+        <form id="tradeForm" class="trade-form" novalidate>
+          <label>
+            <span>Trade date</span>
+            <input id="tradeDate" name="tradeDate" type="date" required />
+          </label>
+
+          <label>
+            <span>Coin</span>
+            <select id="coinId" name="coinId" required></select>
+          </label>
+
+          <label>
+            <span>USDT paid</span>
+            <input
+              id="usdtSpent"
+              name="usdtSpent"
+              type="number"
+              min="0"
+              step="0.01"
+              inputmode="decimal"
+              placeholder="1000"
+              required
+            />
+          </label>
+
+          <label>
+            <span>Coin price at trade date</span>
+            <input
+              id="entryPrice"
+              name="entryPrice"
+              type="number"
+              min="0"
+              step="0.01"
+              inputmode="decimal"
+              placeholder="65000"
+              required
+            />
+          </label>
+
+          <button class="primary-button" type="submit">Add Trade</button>
+        </form>
+
+        <p class="form-message" id="formMessage" aria-live="polite"></p>
+      </section>
+      <section class="panel" aria-labelledby="price-title">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Live or manual</p>
+            <h2 id="price-title">Current Prices</h2>
+          </div>
+        </div>
+        <div class="price-grid" id="priceGrid"></div>
+      </section>
+    </main>
+
+    <template id="emptyRowTemplate">
+      <tr>
+        <td colspan="9" class="empty-state">
+          No trades yet. Add a buy trade to calculate profit.
+        </td>
+      </tr>
+    </template>
+
+    <script src="app.js" defer></script>
+  </body>
+</html>
