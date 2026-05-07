@@ -3,7 +3,8 @@ const STORAGE_KEYS = {
   manualPrices: "cryptoProfitManualPrices",
   goldPurchases: "goldPurchases",
   silverPurchases: "silverPurchases",
-  manualMetalPrices: "manualMetalPrices"
+  manualMetalPrices: "manualMetalPrices",
+  zakahSettings: "zakahCalculatorSettings"
 }
 
 const TROY_OZ_TO_GRAMS = 31.1035
@@ -11,6 +12,18 @@ const CARAT_PURITY = { 24: 1, 21: 21 / 24, 18: 18 / 24 }
 
 const GOLD_NISAB_GRAMS = 85
 const SILVER_NISAB_GRAMS = 595
+const DEFAULT_USD_TO_JOD_RATE = 0.709
+
+const DEFAULT_ZAKAH_SETTINGS = {
+  nisabBasis: "gold",
+  cash: "",
+  inventory: "",
+  receivables: "",
+  liabilities: "",
+  usdToJodRate: DEFAULT_USD_TO_JOD_RATE,
+  currencyUsd: "",
+  currencyJod: ""
+}
 
 const COINS = [
   { id: "btc-bitcoin", symbol: "BTC", name: "Bitcoin", binanceSymbol: "BTCUSDT", coinGeckoId: "bitcoin" },
@@ -33,8 +46,9 @@ const state = {
   goldPurchases: loadJson(STORAGE_KEYS.goldPurchases, []),
   silverPurchases: loadJson(STORAGE_KEYS.silverPurchases, []),
   metalPrices: { gold: 0, silver: 0 },
-  manualMetalPrices: loadJson(STORAGE_KEYS.manualMetalPrices, { gold: 0, silver: 0 }),
-  metalErrors: {}
+  manualMetalPrices: loadManualMetalPrices(),
+  metalErrors: {},
+  zakahSettings: loadZakahSettings()
 }
 
 const elements = {
@@ -78,11 +92,31 @@ const elements = {
   silverPurchaseRows: document.querySelector("#silverPurchaseRows"),
   clearSilverButton: document.querySelector("#clearSilverButton"),
   silverPriceGrid: document.querySelector("#silverPriceGrid"),
-  // Zakah (result elements only — portfolio values are updated by ID in renderZakah)
+  // Zakah
+  zakahForm: document.querySelector("#zakahForm"),
+  zakahCash: document.querySelector("#zakahCash"),
+  zakahInventory: document.querySelector("#zakahInventory"),
+  zakahReceivables: document.querySelector("#zakahReceivables"),
+  zakahLiabilities: document.querySelector("#zakahLiabilities"),
+  zakahCryptoValue: document.querySelector("#zakahCryptoValue"),
+  zakahGoldValue: document.querySelector("#zakahGoldValue"),
+  zakahGoldGrams: document.querySelector("#zakahGoldGrams"),
+  zakahSilverValue: document.querySelector("#zakahSilverValue"),
+  zakahSilverGrams: document.querySelector("#zakahSilverGrams"),
+  zakahPortfolioSubtotal: document.querySelector("#zakahPortfolioSubtotal"),
+  zakahPortfolioAssets: document.querySelector("#zakahPortfolioAssets"),
+  zakahAdditionalAssets: document.querySelector("#zakahAdditionalAssets"),
+  zakahLiabilityTotal: document.querySelector("#zakahLiabilityTotal"),
   zakahNisabValue: document.querySelector("#zakahNisabValue"),
   zakahTotalWealth: document.querySelector("#zakahTotalWealth"),
   zakahDue: document.querySelector("#zakahDue"),
-  nisabStatusBadge: document.querySelector("#nisabStatusBadge")
+  zakahDueJod: document.querySelector("#zakahDueJod"),
+  nisabStatusBadge: document.querySelector("#nisabStatusBadge"),
+  currencyCalculator: document.querySelector("#currencyCalculator"),
+  currencyUsd: document.querySelector("#currencyUsd"),
+  currencyJod: document.querySelector("#currencyJod"),
+  usdToJodRate: document.querySelector("#usdToJodRate"),
+  currencyMessage: document.querySelector("#currencyMessage")
 }
 
 // ── Utilities ──
@@ -99,6 +133,40 @@ function loadJson(key, fallback) {
 
 function saveJson(key, value) {
   localStorage.setItem(key, JSON.stringify(value))
+}
+
+function normalizePositiveNumber(value, fallback = 0) {
+  const number = Number(value)
+  return Number.isFinite(number) && number > 0 ? number : fallback
+}
+
+function loadManualMetalPrices() {
+  const storedPrices = loadJson(STORAGE_KEYS.manualMetalPrices, {})
+  return {
+    gold: normalizePositiveNumber(storedPrices.gold),
+    silver: normalizePositiveNumber(storedPrices.silver)
+  }
+}
+
+function loadZakahSettings() {
+  const storedSettings = loadJson(STORAGE_KEYS.zakahSettings, {})
+  const nisabBasis = storedSettings.nisabBasis === "silver" ? "silver" : "gold"
+  const usdToJodRate = normalizePositiveNumber(storedSettings.usdToJodRate, DEFAULT_USD_TO_JOD_RATE)
+
+  return {
+    ...DEFAULT_ZAKAH_SETTINGS,
+    ...storedSettings,
+    nisabBasis,
+    usdToJodRate
+  }
+}
+
+function syncPortfolioStateFromStorage() {
+  state.trades = loadJson(STORAGE_KEYS.trades, [])
+  state.manualPrices = loadJson(STORAGE_KEYS.manualPrices, {})
+  state.goldPurchases = loadJson(STORAGE_KEYS.goldPurchases, [])
+  state.silverPurchases = loadJson(STORAGE_KEYS.silverPurchases, [])
+  state.manualMetalPrices = loadManualMetalPrices()
 }
 
 function getCoin(coinId) {
@@ -149,6 +217,14 @@ function formatUsd(value) {
     minimumFractionDigits: 2
   }).format(value)
   return `${formatted} USD`
+}
+
+function formatJod(value) {
+  const formatted = new Intl.NumberFormat("en-US", {
+    maximumFractionDigits: 3,
+    minimumFractionDigits: 3
+  }).format(value)
+  return `${formatted} JOD`
 }
 
 function formatUsdt(value) {
@@ -557,12 +633,95 @@ function renderSilver() {
 
 // ── Zakah ──
 
-function getZakahInput(id) {
-  return Math.max(0, Number(document.querySelector(`#${id}`)?.value) || 0)
+function getZakahInput(element) {
+  return Math.max(0, Number(element.value) || 0)
 }
 
 function getNisabBasis() {
   return document.querySelector('input[name="nisabBasis"]:checked')?.value ?? "gold"
+}
+
+function getUsdToJodRate() {
+  const rate = Number(elements.usdToJodRate.value)
+  return Number.isFinite(rate) && rate > 0 ? rate : 0
+}
+
+function restoreZakahSettings() {
+  const settings = state.zakahSettings
+  const basisInput = document.querySelector(`input[name="nisabBasis"][value="${settings.nisabBasis}"]`)
+
+  if (basisInput) basisInput.checked = true
+  elements.zakahCash.value = settings.cash ?? ""
+  elements.zakahInventory.value = settings.inventory ?? ""
+  elements.zakahReceivables.value = settings.receivables ?? ""
+  elements.zakahLiabilities.value = settings.liabilities ?? ""
+  elements.usdToJodRate.value = settings.usdToJodRate || DEFAULT_USD_TO_JOD_RATE
+  elements.currencyUsd.value = settings.currencyUsd ?? ""
+  elements.currencyJod.value = settings.currencyJod ?? ""
+  syncCurrencyCalculator("rate", false)
+}
+
+function saveZakahSettings() {
+  state.zakahSettings = {
+    nisabBasis: getNisabBasis(),
+    cash: elements.zakahCash.value,
+    inventory: elements.zakahInventory.value,
+    receivables: elements.zakahReceivables.value,
+    liabilities: elements.zakahLiabilities.value,
+    usdToJodRate: elements.usdToJodRate.value,
+    currencyUsd: elements.currencyUsd.value,
+    currencyJod: elements.currencyJod.value
+  }
+  saveJson(STORAGE_KEYS.zakahSettings, state.zakahSettings)
+}
+
+function renderCurrencyMessage() {
+  const rate = getUsdToJodRate()
+
+  if (rate > 0) {
+    elements.currencyMessage.textContent = `Using 1 USD = ${formatNumber(rate, 4)} JOD.`
+    elements.currencyMessage.className = "form-message"
+    return
+  }
+
+  elements.currencyMessage.textContent = "Enter a USD/JOD rate greater than zero."
+  elements.currencyMessage.className = "form-message error"
+}
+
+function syncCurrencyCalculator(source, shouldSave = true) {
+  const rate = getUsdToJodRate()
+  const usdValue = Number(elements.currencyUsd.value)
+  const jodValue = Number(elements.currencyJod.value)
+
+  if (rate > 0) {
+    if ((source === "usd" || source === "rate") && elements.currencyUsd.value && Number.isFinite(usdValue) && usdValue >= 0) {
+      elements.currencyJod.value = (usdValue * rate).toFixed(3)
+    } else if ((source === "jod" || source === "rate") && elements.currencyJod.value && Number.isFinite(jodValue) && jodValue >= 0) {
+      elements.currencyUsd.value = (jodValue / rate).toFixed(2)
+    } else if (source === "usd" && !elements.currencyUsd.value) {
+      elements.currencyJod.value = ""
+    } else if (source === "jod" && !elements.currencyJod.value) {
+      elements.currencyUsd.value = ""
+    }
+  }
+
+  renderCurrencyMessage()
+
+  if (shouldSave) {
+    saveZakahSettings()
+    renderZakah()
+  }
+}
+
+function handleZakahInput() {
+  saveZakahSettings()
+  renderZakah()
+}
+
+function handleCurrencyInput(event) {
+  if (event.target === elements.currencyUsd) syncCurrencyCalculator("usd")
+  if (event.target === elements.currencyJod) syncCurrencyCalculator("jod")
+  if (event.target === elements.usdToJodRate) syncCurrencyCalculator("rate")
 }
 
 function getPortfolioValues() {
@@ -594,26 +753,27 @@ function getPortfolioValues() {
 }
 
 function renderZakah() {
+  syncPortfolioStateFromStorage()
+
   const goldPricePerGram = getGoldPricePerGram()
   const silverPricePerGram = getSilverPricePerGram()
   const portfolio = getPortfolioValues()
 
-  // Portfolio display
-  document.querySelector("#zakahCryptoValue").textContent = formatUsd(portfolio.cryptoValue)
-  document.querySelector("#zakahGoldValue").textContent = formatUsd(portfolio.goldValue)
-  document.querySelector("#zakahGoldGrams").textContent = `${formatNumber(portfolio.goldPureGrams, 3)}g pure gold equiv.`
-  document.querySelector("#zakahSilverValue").textContent = formatUsd(portfolio.silverValue)
-  document.querySelector("#zakahSilverGrams").textContent = `${formatNumber(portfolio.silverGrams, 3)}g`
+  elements.zakahCryptoValue.textContent = formatUsd(portfolio.cryptoValue)
+  elements.zakahGoldValue.textContent = formatUsd(portfolio.goldValue)
+  elements.zakahGoldGrams.textContent = `${formatNumber(portfolio.goldPureGrams, 3)}g pure gold equiv.`
+  elements.zakahSilverValue.textContent = formatUsd(portfolio.silverValue)
+  elements.zakahSilverGrams.textContent = `${formatNumber(portfolio.silverGrams, 3)}g`
   const portfolioSubtotal = portfolio.cryptoValue + portfolio.goldValue + portfolio.silverValue
-  document.querySelector("#zakahPortfolioSubtotal").textContent = formatUsd(portfolioSubtotal)
+  elements.zakahPortfolioSubtotal.textContent = formatUsd(portfolioSubtotal)
 
-  // Manual extras
-  const cash = getZakahInput("zakahCash")
-  const inventory = getZakahInput("zakahInventory")
-  const receivables = getZakahInput("zakahReceivables")
-  const liabilities = getZakahInput("zakahLiabilities")
+  const cash = getZakahInput(elements.zakahCash)
+  const inventory = getZakahInput(elements.zakahInventory)
+  const receivables = getZakahInput(elements.zakahReceivables)
+  const liabilities = getZakahInput(elements.zakahLiabilities)
+  const additionalAssets = cash + inventory + receivables
 
-  const totalWealth = Math.max(0, portfolioSubtotal + cash + inventory + receivables - liabilities)
+  const totalWealth = Math.max(0, portfolioSubtotal + additionalAssets - liabilities)
 
   const basis = getNisabBasis()
   const nisabValue = basis === "gold"
@@ -622,10 +782,16 @@ function renderZakah() {
 
   const isAbove = nisabValue > 0 && totalWealth >= nisabValue
   const zakahDue = isAbove ? totalWealth * 0.025 : 0
+  const usdToJodRate = getUsdToJodRate()
 
+  elements.zakahPortfolioAssets.textContent = formatUsd(portfolioSubtotal)
+  elements.zakahAdditionalAssets.textContent = formatUsd(additionalAssets)
+  elements.zakahLiabilityTotal.textContent = formatUsd(liabilities)
   elements.zakahNisabValue.textContent = nisabValue > 0 ? formatUsd(nisabValue) : "Needs metal price"
   elements.zakahTotalWealth.textContent = formatUsd(totalWealth)
   elements.zakahDue.textContent = nisabValue > 0 ? formatUsd(zakahDue) : "—"
+  elements.zakahDueJod.textContent = nisabValue > 0 && usdToJodRate > 0 ? formatJod(zakahDue * usdToJodRate) : "—"
+  renderCurrencyMessage()
 
   const badge = elements.nisabStatusBadge
   if (nisabValue === 0) {
@@ -807,12 +973,14 @@ function addTrade(event) {
   elements.tradeDate.valueAsDate = new Date()
   setFormMessage(elements.formMessage, "Trade added.", "success")
   renderCrypto()
+  renderZakah()
 }
 
 function deleteTrade(tradeId) {
   state.trades = state.trades.filter((trade) => trade.id !== tradeId)
   saveJson(STORAGE_KEYS.trades, state.trades)
   renderCrypto()
+  renderZakah()
 }
 
 function clearTrades() {
@@ -821,6 +989,7 @@ function clearTrades() {
   state.trades = []
   saveJson(STORAGE_KEYS.trades, state.trades)
   renderCrypto()
+  renderZakah()
 }
 
 function setManualPrice(coinId, value) {
@@ -832,12 +1001,14 @@ function setManualPrice(coinId, value) {
   }
   saveJson(STORAGE_KEYS.manualPrices, state.manualPrices)
   renderCrypto()
+  renderZakah()
 }
 
 function clearManualPrice(coinId) {
   delete state.manualPrices[coinId]
   saveJson(STORAGE_KEYS.manualPrices, state.manualPrices)
   renderCrypto()
+  renderZakah()
 }
 
 // ── Gold event handlers ──
@@ -958,9 +1129,10 @@ function bindEvents() {
   elements.clearSilverButton.addEventListener("click", clearSilverPurchases)
 
   // Zakah live calculation
-  document.querySelector("#zakahForm").addEventListener("input", renderZakah)
+  elements.zakahForm.addEventListener("input", handleZakahInput)
+  elements.currencyCalculator.addEventListener("input", handleCurrencyInput)
   document.querySelectorAll('input[name="nisabBasis"]').forEach((radio) =>
-    radio.addEventListener("change", renderZakah)
+    radio.addEventListener("change", handleZakahInput)
   )
   elements.goldCarat.addEventListener("change", renderZakah)
 
@@ -993,6 +1165,7 @@ function bindEvents() {
 function init() {
   renderCoinOptions()
   bindEvents()
+  restoreZakahSettings()
   elements.tradeDate.valueAsDate = new Date()
   elements.goldDate.valueAsDate = new Date()
   elements.silverDate.valueAsDate = new Date()

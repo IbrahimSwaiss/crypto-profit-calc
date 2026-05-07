@@ -576,11 +576,21 @@ tbody tr:last-child td {
   font-size: 0.8rem;
 }
 
-.zakah-form {
+.zakah-form,
+.currency-calculator {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 14px;
   margin-top: 20px;
+}
+
+label.currency-rate input {
+  border-color: rgba(0, 214, 143, 0.3);
+}
+
+label.currency-rate input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-glow);
 }
 
 .zakah-liability label,
@@ -787,7 +797,8 @@ label.zakah-liability span {
 
   .trade-form,
   .manual-price-row,
-  .zakah-form {
+  .zakah-form,
+  .currency-calculator {
     grid-template-columns: 1fr;
   }
 
