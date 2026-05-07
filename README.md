@@ -11,7 +11,9 @@ The app has four tabs:
 - Crypto buy trades paid in USDT
 - Gold purchases by carat and gram weight
 - Silver purchases by gram weight
-- Zakah calculator with a USD/JOD helper
+- Zakah calculator
+
+The USD/JOD calculator is available outside the tabs so it can be used from anywhere in the app.
 
 Each crypto trade asks for:
 
@@ -39,7 +41,7 @@ The Zakah tab reads saved crypto trades, gold purchases, silver purchases, and m
 - Debts and liabilities
 - Gold or silver nisab threshold
 - Zakah due at 2.5% when total zakatable wealth is above nisab
-- Zakah due converted to JOD using the USD/JOD rate
+- Zakah due converted to JOD using the global USD/JOD rate
 
 The USD/JOD calculator is manual and defaults to `1 USD = 0.709 JOD`. Change the rate if you want to use a different value.
 

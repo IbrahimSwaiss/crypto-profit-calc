@@ -34,6 +34,30 @@
         </div>
       </section>
 
+      <section class="panel shared-panel" aria-labelledby="currency-title">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Available across the app</p>
+            <h2 id="currency-title">USD / JOD Calculator</h2>
+          </div>
+        </div>
+        <div class="currency-calculator" id="currencyCalculator">
+          <label>
+            <span>USD amount</span>
+            <input id="currencyUsd" type="number" min="0" step="0.01" inputmode="decimal" placeholder="100" />
+          </label>
+          <label>
+            <span>JOD amount</span>
+            <input id="currencyJod" type="number" min="0" step="0.001" inputmode="decimal" placeholder="70.900" />
+          </label>
+          <label class="currency-rate">
+            <span>USD to JOD rate</span>
+            <input id="usdToJodRate" type="number" min="0" step="0.0001" inputmode="decimal" placeholder="0.709" />
+          </label>
+        </div>
+        <p class="form-message" id="currencyMessage" aria-live="polite"></p>
+      </section>
+
       <nav class="tab-nav" aria-label="App tabs">
         <button class="tab-btn active" data-tab="crypto" type="button">Crypto</button>
         <button class="tab-btn" data-tab="gold" type="button">Gold</button>
@@ -544,30 +568,6 @@
               <input id="zakahLiabilities" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0" />
             </label>
           </div>
-        </section>
-
-        <section class="panel" aria-labelledby="currency-title">
-          <div class="section-heading">
-            <div>
-              <p class="eyebrow">Currency helper</p>
-              <h2 id="currency-title">USD / JOD Calculator</h2>
-            </div>
-          </div>
-          <div class="currency-calculator" id="currencyCalculator">
-            <label>
-              <span>USD amount</span>
-              <input id="currencyUsd" type="number" min="0" step="0.01" inputmode="decimal" placeholder="100" />
-            </label>
-            <label>
-              <span>JOD amount</span>
-              <input id="currencyJod" type="number" min="0" step="0.001" inputmode="decimal" placeholder="70.900" />
-            </label>
-            <label class="currency-rate">
-              <span>USD to JOD rate</span>
-              <input id="usdToJodRate" type="number" min="0" step="0.0001" inputmode="decimal" placeholder="0.709" />
-            </label>
-          </div>
-          <p class="form-message" id="currencyMessage" aria-live="polite"></p>
         </section>
 
         <section class="panel zakah-result-panel" aria-labelledby="zakah-result-title">

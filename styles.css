@@ -181,6 +181,10 @@ h2 {
   padding: 24px;
 }
 
+.shared-panel {
+  margin-bottom: 24px;
+}
+
 .trade-panel {
   background: linear-gradient(135deg, var(--panel), #131828);
   border-color: var(--border-strong);
