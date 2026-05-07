@@ -9,6 +9,7 @@ const STORAGE_KEYS = {
 
 const TROY_OZ_TO_GRAMS = 31.1035
 const CARAT_PURITY = { 24: 1, 21: 21 / 24, 18: 18 / 24 }
+const GOLD_CARATS = [24, 21, 18]
 
 const GOLD_NISAB_GRAMS = 85
 const SILVER_NISAB_GRAMS = 595
@@ -140,10 +141,30 @@ function normalizePositiveNumber(value, fallback = 0) {
   return Number.isFinite(number) && number > 0 ? number : fallback
 }
 
+function normalizeGoldManualPrices(value) {
+  const normalizedPrices = GOLD_CARATS.reduce((prices, carat) => {
+    prices[carat] = 0
+    return prices
+  }, {})
+
+  if (typeof value === "number") {
+    normalizedPrices[24] = normalizePositiveNumber(value)
+    return normalizedPrices
+  }
+
+  if (!value || typeof value !== "object") return normalizedPrices
+
+  GOLD_CARATS.forEach((carat) => {
+    normalizedPrices[carat] = normalizePositiveNumber(value[carat])
+  })
+
+  return normalizedPrices
+}
+
 function loadManualMetalPrices() {
   const storedPrices = loadJson(STORAGE_KEYS.manualMetalPrices, {})
   return {
-    gold: normalizePositiveNumber(storedPrices.gold),
+    gold: normalizeGoldManualPrices(storedPrices.gold),
     silver: normalizePositiveNumber(storedPrices.silver)
   }
 }
@@ -189,9 +210,20 @@ function getPriceSource(coinId) {
   return "missing"
 }
 
-function getGoldPricePerGram() {
-  if (state.manualMetalPrices.gold > 0) return state.manualMetalPrices.gold
+function getBaseGoldPricePerGram() {
+  const manual24kPrice = Number(state.manualMetalPrices.gold[24])
+  if (Number.isFinite(manual24kPrice) && manual24kPrice > 0) return manual24kPrice
   return state.metalPrices.gold > 0 ? state.metalPrices.gold / TROY_OZ_TO_GRAMS : 0
+}
+
+function getGoldPricePerGram(carat = 24) {
+  const normalizedCarat = GOLD_CARATS.includes(carat) ? carat : 24
+  const manualPrice = Number(state.manualMetalPrices.gold[normalizedCarat])
+
+  if (Number.isFinite(manualPrice) && manualPrice > 0) return manualPrice
+
+  const basePrice = getBaseGoldPricePerGram()
+  return basePrice > 0 ? basePrice * (CARAT_PURITY[normalizedCarat] ?? 1) : 0
 }
 
 function getSilverPricePerGram() {
@@ -199,8 +231,13 @@ function getSilverPricePerGram() {
   return state.metalPrices.silver > 0 ? state.metalPrices.silver / TROY_OZ_TO_GRAMS : 0
 }
 
-function getGoldPriceSource() {
-  if (state.manualMetalPrices.gold > 0) return "manual"
+function getGoldPriceSource(carat = 24) {
+  const normalizedCarat = GOLD_CARATS.includes(carat) ? carat : 24
+  const manualPrice = Number(state.manualMetalPrices.gold[normalizedCarat])
+  const manual24kPrice = Number(state.manualMetalPrices.gold[24])
+
+  if (Number.isFinite(manualPrice) && manualPrice > 0) return "manual"
+  if (normalizedCarat !== 24 && Number.isFinite(manual24kPrice) && manual24kPrice > 0) return "manual"
   if (state.metalPrices.gold > 0) return "live"
   return "missing"
 }
@@ -418,35 +455,41 @@ function groupGoldByCarat() {
 }
 
 function renderGoldPrice() {
-  const pricePerGram = getGoldPricePerGram()
-  const source = getGoldPriceSource()
   const pricePerOz = state.metalPrices.gold
-  const manualValue = state.manualMetalPrices.gold > 0 ? state.manualMetalPrices.gold : ""
   const errorMessage = state.metalErrors.gold
     ? `<p class="form-message error">${state.metalErrors.gold}</p>`
     : ""
 
-  elements.goldPriceGrid.innerHTML = `
-    <article class="price-item">
-      <header>
-        <div>
-          <strong>XAU</strong>
-          <p class="eyebrow">Gold</p>
+  elements.goldPriceGrid.innerHTML = GOLD_CARATS.map((carat) => {
+    const pricePerGram = getGoldPricePerGram(carat)
+    const source = getGoldPriceSource(carat)
+    const manualValue = state.manualMetalPrices.gold[carat] > 0 ? state.manualMetalPrices.gold[carat] : ""
+    const purityLabel = carat === 24
+      ? "Pure reference"
+      : `${formatNumber(CARAT_PURITY[carat] * 100, 1)}% gold`
+
+    return `
+      <article class="price-item">
+        <header>
+          <div>
+            <strong>${carat}k</strong>
+            <p class="eyebrow">${purityLabel}</p>
+          </div>
+          <span class="price-source ${source}">${sourceLabel(source)}</span>
+        </header>
+        <div class="price-value">${pricePerGram > 0 ? formatUsd(pricePerGram) + " / g" : "No price"}</div>
+        ${carat === 24 && pricePerOz > 0 ? `<p class="form-message">${formatUsd(pricePerOz)} / troy oz</p>` : ""}
+        <div class="manual-price-row">
+          <label>
+            <span>Manual ${carat}k price (USD/gram)</span>
+            <input data-manual-metal="gold-${carat}" type="number" min="0" step="0.01" inputmode="decimal" value="${manualValue}" placeholder="Set ${carat}k price per gram">
+          </label>
+          <button data-clear-metal="gold-${carat}" type="button">Clear</button>
         </div>
-        <span class="price-source ${source}">${sourceLabel(source)}</span>
-      </header>
-      <div class="price-value">${pricePerGram > 0 ? formatUsd(pricePerGram) + " / g" : "No price"}</div>
-      ${pricePerOz > 0 ? `<p class="form-message">${formatUsd(pricePerOz)} / troy oz</p>` : ""}
-      <div class="manual-price-row">
-        <label>
-          <span>Manual price (USD/gram)</span>
-          <input data-manual-metal="gold" type="number" min="0" step="0.01" inputmode="decimal" value="${manualValue}" placeholder="Set price per gram">
-        </label>
-        <button data-clear-metal="gold" type="button">Clear</button>
-      </div>
-      ${errorMessage}
-    </article>
-  `
+        ${carat === 24 ? errorMessage : ""}
+      </article>
+    `
+  }).join("")
 }
 
 function renderGoldSummary() {
@@ -454,12 +497,10 @@ function renderGoldSummary() {
     elements.goldSummaryRows.innerHTML = '<tr><td colspan="7" class="empty-state">No gold purchases yet.</td></tr>'
     return
   }
-  const goldPrice24k = getGoldPricePerGram()
   const groups = Array.from(groupGoldByCarat().values()).sort((a, b) => b.carat - a.carat)
 
   elements.goldSummaryRows.innerHTML = groups.map((group) => {
-    const purity = CARAT_PURITY[group.carat]
-    const currentPriceForCarat = goldPrice24k * purity
+    const currentPriceForCarat = getGoldPricePerGram(group.carat)
     const currentValue = group.totalGrams * currentPriceForCarat
     const profit = currentValue - group.totalPaid
     const avgEntry = group.totalPaid / group.totalGrams
@@ -482,11 +523,9 @@ function renderGoldPurchases() {
     elements.goldPurchaseRows.innerHTML = '<tr><td colspan="9" class="empty-state">No purchases yet. Add a gold purchase above.</td></tr>'
     return
   }
-  const goldPrice24k = getGoldPricePerGram()
   elements.goldPurchaseRows.innerHTML = state.goldPurchases.map((p) => {
     const carat = p.carat ?? 24
-    const purity = CARAT_PURITY[carat]
-    const currentPriceForCarat = goldPrice24k * purity
+    const currentPriceForCarat = getGoldPricePerGram(carat)
     const currentValue = p.weightGrams * currentPriceForCarat
     const profit = currentValue - p.totalPaid
     return `
@@ -506,11 +545,9 @@ function renderGoldPurchases() {
 }
 
 function renderGoldMetrics() {
-  const goldPrice24k = getGoldPricePerGram()
   const totals = state.goldPurchases.reduce((acc, p) => {
-    const purity = CARAT_PURITY[p.carat ?? 24]
     acc.invested += p.totalPaid
-    acc.value += p.weightGrams * goldPrice24k * purity
+    acc.value += p.weightGrams * getGoldPricePerGram(p.carat ?? 24)
     return acc
   }, { invested: 0, value: 0 })
   const profit = totals.value - totals.invested
@@ -725,14 +762,13 @@ function handleCurrencyInput(event) {
 }
 
 function getPortfolioValues() {
-  const goldPrice24k = getGoldPricePerGram()
   const silverPricePerGram = getSilverPricePerGram()
 
   const cryptoValue = state.trades.reduce((sum, trade) => sum + getTradeCalculations(trade).currentValue, 0)
 
   const goldTotals = state.goldPurchases.reduce((acc, p) => {
     const purity = CARAT_PURITY[p.carat ?? 24]
-    acc.value += p.weightGrams * goldPrice24k * purity
+    acc.value += p.weightGrams * getGoldPricePerGram(p.carat ?? 24)
     acc.pureGrams += p.weightGrams * purity
     return acc
   }, { value: 0, pureGrams: 0 })
@@ -755,7 +791,7 @@ function getPortfolioValues() {
 function renderZakah() {
   syncPortfolioStateFromStorage()
 
-  const goldPricePerGram = getGoldPricePerGram()
+  const goldPricePerGram = getGoldPricePerGram(24)
   const silverPricePerGram = getSilverPricePerGram()
   const portfolio = getPortfolioValues()
 
@@ -933,13 +969,81 @@ async function refreshPrices() {
 
 // ── Metals price fetch ──
 
+function getQuoteMidPrice(quote) {
+  const bid = Number(quote?.bid)
+  const ask = Number(quote?.ask)
+
+  if (Number.isFinite(bid) && bid > 0 && Number.isFinite(ask) && ask > 0) {
+    return (bid + ask) / 2
+  }
+
+  if (Number.isFinite(bid) && bid > 0) return bid
+  if (Number.isFinite(ask) && ask > 0) return ask
+  return 0
+}
+
+function extractSwissquoteMetalPrice(payload) {
+  if (!Array.isArray(payload)) throw new Error("Swissquote payload was not a list")
+
+  const preferredProfiles = ["prime", "premium", "standard", "elite"]
+
+  for (const spreadProfile of preferredProfiles) {
+    for (const quoteGroup of payload) {
+      const quote = quoteGroup?.spreadProfilePrices?.find((price) => price.spreadProfile === spreadProfile)
+      const midPrice = getQuoteMidPrice(quote)
+      if (midPrice > 0) return midPrice
+    }
+  }
+
+  for (const quoteGroup of payload) {
+    for (const quote of quoteGroup?.spreadProfilePrices ?? []) {
+      const midPrice = getQuoteMidPrice(quote)
+      if (midPrice > 0) return midPrice
+    }
+  }
+
+  throw new Error("Swissquote response did not include a usable quote")
+}
+
+async function fetchSwissquoteMetalPrice(instrument) {
+  const response = await fetch(`https://forex-data-feed.swissquote.com/public-quotes/bboquotes/instrument/${instrument}`)
+  if (!response.ok) throw new Error(`Swissquote ${instrument} quote failed`)
+
+  const payload = await response.json()
+  return extractSwissquoteMetalPrice(payload)
+}
+
+async function fetchMetalsLivePrices() {
+  const response = await fetch("https://metals.live/api/spot")
+  if (!response.ok) throw new Error("Metals API error")
+
+  const data = await response.json()
+  return {
+    gold: Number(data.find((metal) => metal.metal === "XAU")?.price ?? 0),
+    silver: Number(data.find((metal) => metal.metal === "XAG")?.price ?? 0)
+  }
+}
+
 async function fetchMetalPrices() {
+  const metalResults = await Promise.allSettled([
+    fetchSwissquoteMetalPrice("XAU/USD"),
+    fetchSwissquoteMetalPrice("XAG/USD")
+  ])
+
+  let gold = metalResults[0].status === "fulfilled" ? metalResults[0].value : 0
+  let silver = metalResults[1].status === "fulfilled" ? metalResults[1].value : 0
+
+  if (gold <= 0 || silver <= 0) {
+    try {
+      const fallbackPrices = await fetchMetalsLivePrices()
+      if (gold <= 0) gold = fallbackPrices.gold
+      if (silver <= 0) silver = fallbackPrices.silver
+    } catch {
+      // Keep Swissquote results when fallback is unavailable.
+    }
+  }
+
   try {
-    const response = await fetch("https://metals.live/api/spot")
-    if (!response.ok) throw new Error("Metals API error")
-    const data = await response.json()
-    const gold = data.find((m) => m.metal === "XAU")?.price ?? 0
-    const silver = data.find((m) => m.metal === "XAG")?.price ?? 0
     if (gold > 0) {
       state.metalPrices.gold = gold
       delete state.metalErrors.gold
@@ -1015,9 +1119,8 @@ function clearManualPrice(coinId) {
 
 function autoFillGoldEntryPrice() {
   const carat = Number(elements.goldCarat.value)
-  const goldPrice24k = getGoldPricePerGram()
-  if (goldPrice24k > 0 && !elements.goldEntryPrice.value) {
-    const priceForCarat = goldPrice24k * (CARAT_PURITY[carat] ?? 1)
+  const priceForCarat = getGoldPricePerGram(carat)
+  if (priceForCarat > 0 && !elements.goldEntryPrice.value) {
     elements.goldEntryPrice.value = priceForCarat.toFixed(2)
   }
 }
@@ -1056,7 +1159,15 @@ function clearGoldPurchases() {
 
 function setManualMetalPrice(metal, value) {
   const price = Number(value)
-  state.manualMetalPrices[metal] = (Number.isFinite(price) && price > 0) ? price : 0
+  const normalizedPrice = (Number.isFinite(price) && price > 0) ? price : 0
+
+  if (metal.startsWith("gold-")) {
+    const carat = Number(metal.split("-")[1])
+    state.manualMetalPrices.gold[carat] = normalizedPrice
+  } else {
+    state.manualMetalPrices[metal] = normalizedPrice
+  }
+
   saveJson(STORAGE_KEYS.manualMetalPrices, state.manualMetalPrices)
   renderGold()
   renderSilver()
@@ -1064,7 +1175,13 @@ function setManualMetalPrice(metal, value) {
 }
 
 function clearManualMetalPrice(metal) {
-  state.manualMetalPrices[metal] = 0
+  if (metal.startsWith("gold-")) {
+    const carat = Number(metal.split("-")[1])
+    state.manualMetalPrices.gold[carat] = 0
+  } else {
+    state.manualMetalPrices[metal] = 0
+  }
+
   saveJson(STORAGE_KEYS.manualMetalPrices, state.manualMetalPrices)
   renderGold()
   renderSilver()

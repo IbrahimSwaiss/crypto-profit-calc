@@ -30,7 +30,7 @@ The app calculates:
 - Grouped totals per coin
 - Overall totals across all coins
 
-Gold and silver purchases calculate current value, profit, and totals from the saved purchase records and the current metal price.
+Gold and silver purchases calculate current value, profit, and totals from the saved purchase records and the current metal price. Gold prices can be set separately for 24k, 21k, and 18k.
 
 ## Zakah
 
@@ -47,7 +47,9 @@ The USD/JOD calculator is manual and defaults to `1 USD = 0.709 JOD`. Change the
 
 ## Prices
 
-Current prices are fetched from Binance public USDT ticker endpoints like `https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT`. If Binance does not return a price, the app falls back to CoinGecko simple price endpoints and treats USD quotes as USDT-equivalent for profit tracking.
+Current crypto prices are fetched from Binance public USDT ticker endpoints like `https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT`. If Binance does not return a price, the app falls back to CoinGecko simple price endpoints and treats USD quotes as USDT-equivalent for profit tracking.
+
+Gold and silver prices are fetched from Swissquote quote endpoints such as `https://forex-data-feed.swissquote.com/public-quotes/bboquotes/instrument/XAU/USD` and `https://forex-data-feed.swissquote.com/public-quotes/bboquotes/instrument/XAG/USD`. If a Swissquote metal quote is unavailable, the app falls back to `https://metals.live/api/spot`.
 
 If live pricing fails, enter a manual current price for that coin. Manual prices override live prices until cleared.
 
